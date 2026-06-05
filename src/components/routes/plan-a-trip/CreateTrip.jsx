@@ -1,8 +1,7 @@
 import { Input } from "@/components/ui/input";
-import React, { useContext, useEffect, useState } from "react";
-import GooglePlacesAutocomplete from "react-google-places-autocomplete";
+import React, { useContext, useRef, useState } from "react";
+import LocationAutocomplete from "@/components/ui/location-autocomplete";
 import {
-  PROMPT,
   SelectBudgetOptions,
   SelectNoOfPersons,
 } from "../../constants/Options";
@@ -15,115 +14,119 @@ import {
   DialogClose,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { FcGoogle } from "react-icons/fc";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { LogInIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
-import { chatSession } from "@/Service/AiModel";
-
+import { planTrip } from "@/Service/TripPlanner";
+import { saveLocalTrip } from "@/Service/TripStorage";
 import { LogInContext } from "@/Context/LogInContext/Login";
-
 import { db } from "@/Service/Firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import ReactGoogleAutocomplete from "react-google-autocomplete";
 
-function CreateTrip({createTripPageRef}) {
-  const [place, setPlace] = useState("");
-  const [formData, setFormData] = useState([]);
+function CreateTrip({ createTripPageRef }) {
+  const [formData, setFormData] = useState({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [signInName, setSignInName] = useState("");
+  const [signInEmail, setSignInEmail] = useState("");
+  const pendingGenerateRef = useRef(false);
   const navigate = useNavigate();
 
-  const { user, loginWithPopup, isAuthenticated } = useContext(LogInContext);
+  const { user, signIn, isAuthenticated, setTrip } = useContext(LogInContext);
 
   const handleInputChange = (name, value) => {
     setFormData((prevState) => ({ ...prevState, [name]: value }));
   };
 
-  const SignIn = async () => {
-    loginWithPopup();
-  };
+  const validateForm = () => {
+    const days = Number(formData?.noOfDays);
 
-  const SaveUser = async () => {
-    const User = JSON.parse(localStorage.getItem("User"));
-    const id = User?.email;
-    await setDoc(doc(db, "Users", id), {
-      userName: User?.name,
-      userEmail: User?.email,
-      userPicture: User?.picture,
-      userNickname: User?.nickname,
-    });
-  };
-
-  useEffect(() => {
-    if (user && isAuthenticated) {
-      localStorage.setItem("User", JSON.stringify(user));
-      SaveUser();
+    if (!formData?.location || !formData?.People || !formData?.Budget || !days) {
+      toast.error("Please fill out every field or select every option.");
+      return false;
     }
-  }, [user]);
+    if (days > 5) {
+      toast.error("Please enter Trip Days less than 5");
+      return false;
+    }
+    if (days < 1) {
+      toast.error("Invalid number of Days");
+      return false;
+    }
+    return true;
+  };
 
-  const SaveTrip = async (TripData) => {
-    const User = JSON.parse(localStorage.getItem("User"));
-    const id = Date.now().toString();
+  const runTripGeneration = async (currentUser) => {
+    if (!validateForm()) return;
+
+    const tripInput = {
+      location: formData.location,
+      noOfDays: Number(formData.noOfDays),
+      People: formData.People,
+      Budget: formData.Budget,
+    };
+
+    const toastId = toast.loading("Building your trip...", { icon: "✈️" });
     setIsLoading(true);
-    await setDoc(doc(db, "Trips", id), {
-      tripId: id,
-      userSelection: formData,
-      tripData: TripData,
 
-      userName: User?.name,
-      userEmail: User?.email,
-    });
-    setIsLoading(false);
-    localStorage.setItem("Trip", JSON.stringify(TripData));
-    navigate("/my-trips/" + id);
+    try {
+      const { trip } = await planTrip(tripInput);
+
+      const id = Date.now().toString();
+      const tripDoc = {
+        tripId: id,
+        userSelection: formData,
+        tripData: trip,
+        userName: currentUser?.name,
+        userEmail: currentUser?.email,
+      };
+
+      setTrip(tripDoc);
+      saveLocalTrip(currentUser.email, tripDoc);
+
+      toast.dismiss(toastId);
+      toast.success("Trip created successfully!");
+
+      navigate("/my-trips/" + id);
+
+      setDoc(doc(db, "Trips", id), tripDoc).catch((error) => {
+        console.error("Firebase save failed:", error);
+        toast.error("Trip ready, but cloud save failed. Check Firebase.");
+      });
+    } catch (error) {
+      console.error("Trip generation failed:", error);
+      toast.dismiss(toastId);
+      toast.error("Failed to generate trip. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const generateTrip = async () => {
-    if (!isAuthenticated) {
-      toast("Sign In to continue", {
-        icon: "⚠️",
-      });
-      return setIsDialogOpen(true);
+    if (!isAuthenticated || !user) {
+      pendingGenerateRef.current = true;
+      toast("Sign in to save your trip", { icon: "🔐" });
+      setIsDialogOpen(true);
+      return;
     }
-    if (
-      !formData?.noOfDays ||
-      !formData?.location ||
-      !formData?.People ||
-      !formData?.Budget
-    ) {
-      return toast.error("Please fill out every field or select every option.");
-    }
-    if (formData?.noOfDays > 5) {
-      return toast.error("Please enter Trip Days less then 5");
-    }
-    if (formData?.noOfDays < 1) {
-      return toast.error("Invalid number of Days");
-    }
-    const FINAL_PROMPT = PROMPT.replace(/{location}/g, formData?.location)
-      .replace(/{noOfDays}/g, formData?.noOfDays)
-      .replace(/{People}/g, formData?.People)
-      .replace(/{Budget}/g, formData?.Budget);
+    await runTripGeneration(user);
+  };
 
-    try {
-      const toastId = toast.loading("Generating Trip", {
-        icon: "✈️",
-      });
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    const success = await signIn(signInName.trim(), signInEmail.trim());
+    if (!success) return;
 
-      setIsLoading(true);
-      const result = await chatSession.sendMessage(FINAL_PROMPT);
-      const trip = JSON.parse(result.response.text());
-      setIsLoading(false);
-      SaveTrip(trip);
+    setIsDialogOpen(false);
+    setSignInName("");
+    setSignInEmail("");
 
-      toast.dismiss(toastId);
-      toast.success("Trip Generated Successfully");
-    } catch (error) {
-      setIsLoading(false);
-      toast.dismiss();
-      toast.error("Failed to generate trip. Please try again.");
-      console.error(error);
+    if (pendingGenerateRef.current) {
+      pendingGenerateRef.current = false;
+      const signedInUser = JSON.parse(localStorage.getItem("User"));
+      await runTripGeneration(signedInUser);
     }
   };
 
@@ -155,30 +158,13 @@ function CreateTrip({createTripPageRef}) {
             </span>{" "}
             🏖️
           </h2>
-          <ReactGoogleAutocomplete
+          <LocationAutocomplete
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-center"
-            apiKey={import.meta.env.VITE_GOOGLE_MAP_API_KEY}
-            autoFocus
-            onPlaceSelected={(place) => {
-              setPlace(place);
-              handleInputChange("location", place.formatted_address);
+            onSelect={(location) => {
+              handleInputChange("location", location.label);
             }}
             placeholder="Enter a City"
           />
-
-          {/* Not using this as this was not accepting style and all */}
-          {/* <GooglePlacesAutocomplete
-            className="bg-red-500"
-            apiKey={import.meta.env.VITE_GOOGLE_MAP_API_KEY}
-            selectProps={{
-              value: place,
-              onChange: (place) => {
-                setPlace(place);
-                handleInputChange("location", place.label);
-              },
-              placeholder: "Search for a location...",
-            }}
-          /> */}
         </div>
 
         <div className="day">
@@ -203,67 +189,76 @@ function CreateTrip({createTripPageRef}) {
         <div className="budget">
           <h2 className="font-semibold text-lg md:text-xl mb-3 ">
             <span className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
-              {" "}
               What is your Budget?
             </span>{" "}
             💳
           </h2>
           <div className="options grid grid-cols-1 gap-5 md:grid-cols-3">
-            {SelectBudgetOptions.map((item) => {
-              return (
-                <div
-                  onClick={(e) => handleInputChange("Budget", item.title)}
-                  key={item.id}
-                  className={`option cursor-pointer transition-all hover:scale-110 p-4 h-32 flex items-center justify-center flex-col border hover:shadow-foreground/10 hover:shadow-md rounded-lg
+            {SelectBudgetOptions.map((item) => (
+              <div
+                onClick={() => handleInputChange("Budget", item.title)}
+                key={item.id}
+                className={`option cursor-pointer transition-all hover:scale-110 p-4 h-32 flex items-center justify-center flex-col border hover:shadow-foreground/10 hover:shadow-md rounded-lg
                   ${
                     formData?.Budget == item.title &&
                     "border border-foreground/80"
-                  }
-                  `}
-                >
-                  <h3 className="font-bold text-[15px] md:font-[18px]">
-                    {item.icon} <span className={`
-                      ${formData?.Budget == item.title ? 
-                      "bg-gradient-to-b from-blue-400 to-blue-700 bg-clip-text text-center text-transparent" :
-                      ""}
-                      `}>{item.title}</span>
-                  </h3>
-                  <p className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">{item.desc}</p>
-                </div>
-              );
-            })}
+                  }`}
+              >
+                <h3 className="font-bold text-[15px] md:font-[18px]">
+                  {item.icon}{" "}
+                  <span
+                    className={`${
+                      formData?.Budget == item.title
+                        ? "bg-gradient-to-b from-blue-400 to-blue-700 bg-clip-text text-center text-transparent"
+                        : ""
+                    }`}
+                  >
+                    {item.title}
+                  </span>
+                </h3>
+                <p className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="people">
-          <h2 className="font-semibold  text-lg md:text-xl mb-3 ">
+          <h2 className="font-semibold text-lg md:text-xl mb-3 ">
             <span className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
-              Who are you traveling with?{" "}
+              Who are you traveling with?
             </span>{" "}
             🚗
           </h2>
           <div className="options grid grid-cols-1 gap-5 md:grid-cols-3">
-            {SelectNoOfPersons.map((item) => {
-              return (
-                <div
-                  onClick={(e) => handleInputChange("People", item.no)}
-                  key={item.id}
-                  className={`option cursor-pointer transition-all hover:scale-110 p-4 h-32 flex items-center justify-center flex-col border rounded-lg hover:shadow-foreground/10 hover:shadow-md
-                    ${formData?.People == item.no && "border border-foreground/80"}
-                  `}
-                >
-                  <h3 className="font-bold text-[15px] md:font-[18px]">
-                    {item.icon} <span className={`
-                      ${formData?.People == item.no ? 
-                      "bg-gradient-to-b from-blue-400 to-blue-700 bg-clip-text text-center text-transparent" :
-                      ""}
-                      `}>{item.title}</span>
-                  </h3>
-                  <p className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">{item.desc}</p>
-                  <p className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">{item.no}</p>
-                </div>
-              );
-            })}
+            {SelectNoOfPersons.map((item) => (
+              <div
+                onClick={() => handleInputChange("People", item.no)}
+                key={item.id}
+                className={`option cursor-pointer transition-all hover:scale-110 p-4 h-32 flex items-center justify-center flex-col border rounded-lg hover:shadow-foreground/10 hover:shadow-md
+                  ${formData?.People == item.no && "border border-foreground/80"}`}
+              >
+                <h3 className="font-bold text-[15px] md:font-[18px]">
+                  {item.icon}{" "}
+                  <span
+                    className={`${
+                      formData?.People == item.no
+                        ? "bg-gradient-to-b from-blue-400 to-blue-700 bg-clip-text text-center text-transparent"
+                        : ""
+                    }`}
+                  >
+                    {item.title}
+                  </span>
+                </h3>
+                <p className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
+                  {item.desc}
+                </p>
+                <p className="bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
+                  {item.no}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -278,40 +273,49 @@ function CreateTrip({createTripPageRef}) {
         </Button>
       </div>
 
-      <Dialog
-        className="m-4"
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-      >
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-center bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
-              {user ? "Thank you for LogIn" : "Sign In to Continue"}
+              Sign In to Continue
             </DialogTitle>
-            <DialogDescription>
-              <span className="flex gap-2">
-                <span className="text-center w-full opacity-90 mx-auto tracking-tight text-primary/80">
-                  {user
-                    ? "Logged In Securely to JourneyJolt with Google Authentication"
-                    : "Sign In to JourneyJolt with Google Authentication Securely"}
-                </span>
-              </span>
-              {user ? (
-                ""
-              ) : (
-                <Button
-                  onClick={SignIn}
-                  className="w-full mt-5 flex gap-2 items-center justify-center"
-                >
-                  Sign In with <FcGoogle className="h-5 w-5" />
-                </Button>
-              )}
+            <DialogDescription className="text-center opacity-90 tracking-tight text-primary/80">
+              Enter your name and email to save your trip. Trip generation will
+              start right after you sign in.
             </DialogDescription>
+            <form onSubmit={handleSignIn} className="flex flex-col gap-3 mt-4">
+              <Input
+                placeholder="Your name"
+                value={signInName}
+                onChange={(e) => setSignInName(e.target.value)}
+                required
+                autoFocus
+              />
+              <Input
+                type="email"
+                placeholder="your@email.com"
+                value={signInEmail}
+                onChange={(e) => setSignInEmail(e.target.value)}
+                required
+              />
+              <Button
+                type="submit"
+                className="w-full flex gap-2 items-center justify-center"
+              >
+                Continue & Generate Trip <LogInIcon className="h-4 w-4" />
+              </Button>
+            </form>
           </DialogHeader>
           <DialogFooter>
             <DialogClose className="w-full">
-              <Button variant="outline" className="w-full">
-                Close
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  pendingGenerateRef.current = false;
+                }}
+              >
+                Cancel
               </Button>
             </DialogClose>
           </DialogFooter>

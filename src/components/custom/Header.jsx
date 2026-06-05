@@ -15,13 +15,13 @@ import { Link } from "react-router-dom";
 import ThemeToggle from "../constants/ThemeToggle.jsx";
 
 function Header({headerRef}) {
-  const { user, isAuthenticated, logout, loginWithPopup } =
+  const { user, isAuthenticated, authReady, logout, openSignIn } =
     useContext(LogInContext);
   const LogOut = () => {
     logout();
   };
   const LogIn = () => {
-    loginWithPopup();
+    openSignIn();
   };
 
   return (
@@ -41,7 +41,9 @@ function Header({headerRef}) {
       </Link>
       <div className=" flex items-center justify-center gap-5">
         <ThemeToggle className="" />
-        {isAuthenticated ? (
+        {!authReady ? (
+          <div className="h-10 w-20 animate-pulse rounded-md bg-foreground/10" />
+        ) : isAuthenticated && user ? (
           <DropdownMenu>
             <DropdownMenuTrigger className="">
               <div className="user flex items-center gap-2 mr-3">

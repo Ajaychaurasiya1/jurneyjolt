@@ -105,6 +105,11 @@ function Hero({ heroRef }) {
                 : "Plan a Trip, It's Free"}
             </Button>
           </Link>
+          {isAuthenticated && (
+            <Link to="/all-trips">
+              <Button variant="outline">My Trips</Button>
+            </Link>
+          )}
           <Link
             target="_blank"
             rel="noopener noreferrer"

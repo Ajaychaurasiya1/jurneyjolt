@@ -1,16 +1,21 @@
-import React from "react";
+import React, { useContext } from "react";
+import { LogInContext } from "@/Context/LogInContext/Login";
 import Placescard from "./Placescard";
 
 function Places() {
+  const { trip } = useContext(LogInContext);
+  const days = trip?.tripData?.itinerary?.length || 0;
+
   return (
-    <div className="my-[15vh]">
-      <h2 className="opacity-90 mx-auto text-center text-3xl font-black text-primary/80 md:text-5xl">
-        Places
+    <section className="my-10 md:my-16">
+      <h2 className="text-2xl md:text-4xl font-black text-center mb-2 bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
+        Day-by-Day Itinerary
       </h2>
-      <div className="main-info mt-2 md:mt-4">
-        <Placescard />
-      </div>
-    </div>
+      <p className="text-center opacity-80 mb-8 text-sm md:text-base">
+        Your {days}-day adventure plan with themed activities each day
+      </p>
+      <Placescard />
+    </section>
   );
 }
 

@@ -15,14 +15,10 @@ function Hotelcard() {
   const { holetsRef } = useRefContext();
 
   return (
-    <div ref={holetsRef} className="flex flex-col md:flex-row flex-wrap gap-5">
-      {hotels?.map((hotel, idx) => {
-        return (
-          <div key={idx} className="md:w-[48%]">
-            <HotelCards className="hotel-card" hotel={hotel} />
-          </div>
-        );
-      })}
+    <div ref={holetsRef} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      {hotels?.map((hotel, idx) => (
+        <HotelCards key={idx} hotel={hotel} />
+      ))}
     </div>
   );
 }

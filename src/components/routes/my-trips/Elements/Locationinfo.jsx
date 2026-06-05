@@ -1,7 +1,6 @@
 import { LogInContext } from "@/Context/LogInContext/Login";
-import { getCityDetails, PHOTO_URL } from "@/Service/GlobalApi";
+import { fetchCityDetails, getPhotoUrl } from "@/Service/GlobalApi";
 import React, { useContext, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,12 +14,8 @@ import { useRefContext } from "@/Context/RefContext/RefContext";
 
 function Locationinfo() {
   const { trip } = useContext(LogInContext);
-  const [cityDets, setCityDets] = useState([]);
-  const [photos, setPhotos] = useState("");
-  const [Url, setUrl] = useState("");
-  const { locationInfoRef} = useRefContext();
-
   const [allImages, setAllImages] = useState([]);
+  const { locationInfoRef } = useRefContext();
 
   const compliments = [
     "Indeed, a great choice!",
@@ -57,32 +52,22 @@ function Locationinfo() {
 
   const city = trip?.tripData?.location;
 
-  const getCityInfo = async () => {
-    const data = {
-      textQuery: city,
+  useEffect(() => {
+    if (!trip || !city) return;
+
+    const getCityInfo = async () => {
+      try {
+        const details = await fetchCityDetails(city);
+        if (details?.photos?.length) {
+          setAllImages(details.photos);
+        }
+      } catch (err) {
+        console.error("Failed to fetch city details:", err);
+      }
     };
-    const result = await getCityDetails(data)
-      .then((res) => {
-        setCityDets(res.data.places[0]);
-        // console.log("Res Data", res.data.places[0]);
-        setAllImages(res.data.places[0].photos);
-        setPhotos(res.data.places[0].photos[0].name);
-      })
-      .catch((err) => console.log(err));
-  };
 
-  useEffect(() => {
-    trip && getCityInfo();
-  }, [trip]);
-
-  const getUrl = (name) => {
-    return PHOTO_URL.replace("{replace}", name);
-  };
-
-  useEffect(() => {
-    const url = PHOTO_URL.replace("{replace}", photos);
-    setUrl(url);
-  }, [photos]);
+    getCityInfo();
+  }, [trip, city]);
 
   return (
     <div ref={locationInfoRef} className="my-1 md:my-5">
@@ -96,44 +81,44 @@ function Locationinfo() {
           {randomCompliment}
         </p>
       </div>
-      <div className="carousel img opacity-90 mx-auto text-center text-lg font-medium tracking-tight text-primary/80 md:text-lg">
-        Take a sneak peek at what's ahead!
-      </div>
-      <Carousel className="carousel w-full ">
-        <CarouselContent>
-          {allImages?.map((imgs, index) => (
-            <CarouselItem key={index}>
-              <div className="p-1 h-full w-full">
-                <Card>
-                  <CardContent className="flex max-h-[50vh] rounded-lg overflow-hidden h-full w-full items-center justify-center p-1">
-                    <img
-                      src={
-                        getUrl(imgs.name) || "/images/main_img_placeholder.jpg"
-                      }
-                      className="rounded-lg cursor-pointer"
-                      alt={imgs.name}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="hidden md:flex" />
-        <CarouselNext className="hidden md:flex" />
-      </Carousel>
-      {/* <Link to={cityDets.googleMapsUri} className="cursor-pointer">
-        <img
-          src={Url || "/images/main_img_placeholder.jpg"}
-          className="w-full object-cover rounded-lg"
-          alt="place"
-        />
-      </Link> */}
-      <h2 className="location-info md:mt-4 opacity-90 mx-auto text-center text-lg font-medium tracking-tight text-primary/80 md:text-xl">
-        Ah, these are your picks—looking great so far!
-        {/* <span className="bg-gradient-to-b from-blue-400 to-blue-700 bg-clip-text text-transparent">
-          Adventure
-        </span>{" "} */}
+      {allImages.length > 0 && (
+        <>
+          <div className="carousel img opacity-90 mx-auto text-center text-lg font-medium tracking-tight text-primary/80 md:text-lg">
+            Take a sneak peek at what's ahead!
+          </div>
+          <Carousel className="carousel w-full ">
+            <CarouselContent>
+              {allImages.map((imgs, index) => (
+                <CarouselItem key={index}>
+                  <div className="p-1 h-full w-full">
+                    <Card>
+                      <CardContent className="flex max-h-[50vh] rounded-lg overflow-hidden h-full w-full items-center justify-center p-1">
+                        <img
+                          src={
+                            getPhotoUrl(imgs) ||
+                            "/images/main_img_placeholder.jpg"
+                          }
+                          className="rounded-lg cursor-pointer"
+                          alt={city}
+                        />
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="hidden md:flex" />
+            <CarouselNext className="hidden md:flex" />
+          </Carousel>
+        </>
+      )}
+      {trip?.tripData?.overview && (
+        <p className="max-w-2xl mx-auto text-center opacity-80 text-sm md:text-base mt-4 px-4">
+          {trip.tripData.overview}
+        </p>
+      )}
+      <h2 className="location-info md:mt-6 opacity-90 mx-auto text-center text-lg font-medium tracking-tight text-primary/80 md:text-xl">
+        Your trip at a glance
       </h2>
       <div className="location-info flex items-center justify-center py-2 gap-2 mt-2">
         <h3 className="location-info opacity-90 bg-foreground/20 px-2 md:px-4 flex items-center justify-center rounded-md text-center text-md font-medium tracking-tight text-primary/80 md:text-lg">

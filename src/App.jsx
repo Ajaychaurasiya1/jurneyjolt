@@ -1,27 +1,19 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Header from "./components/custom/Header.jsx";
 import Hero from "./components/custom/Hero.jsx";
+import Features from "./components/custom/Features.jsx";
+import HowItWorks from "./components/custom/HowItWorks.jsx";
+import ProtectedRoute from "./components/custom/ProtectedRoute.jsx";
 import CreateTrip from "./components/routes/plan-a-trip/CreateTrip.jsx";
 import Mytrips from "./components/routes/my-trips/[tripId]/Mytrips.jsx";
-import { useContext, useEffect, useRef, useState } from "react";
-import { LogInContext } from "./Context/LogInContext/Login.jsx";
+import { useEffect, useRef } from "react";
 import Footer from "./components/custom/Footer.jsx";
 import Alltrips from "./components/routes/all-trips/Alltrips.jsx";
-import toast from "react-hot-toast";
 import gsap from "gsap";
 import ProgressBar from "./components/constants/ProgressBar.jsx";
 import { useRefContext } from "./Context/RefContext/RefContext.jsx";
 
 function App() {
-  const { user, isAuthenticated } = useContext(LogInContext);
-  const [loggedIn, setLoggedIn] = useState(false);
-
   const location = useLocation();
 
   const headerRef = useRef(null);
@@ -31,17 +23,12 @@ function App() {
   const { locationInfoRef } = useRefContext();
 
   useEffect(() => {
-    if (!loggedIn && isAuthenticated) {
-      setLoggedIn(true);
-      toast.success("Logged In Successfully");
-    }
-  }, [user]);
-
-  useEffect(() => {
     const timeline = gsap.timeline({ defaults: { ease: "elastic.out(1,1)" } });
 
     // Header
-    timeline.from(headerRef.current, { delay: 0.5, opacity: 0, y: -100 });
+    if (headerRef.current) {
+      timeline.from(headerRef.current, { delay: 0.5, opacity: 0, y: -100 });
+    }
 
     // Hero
     const heading = heroRef.current?.querySelector(".heading");
@@ -87,7 +74,9 @@ function App() {
     }
 
     // Footer
-    timeline.from(footerRef.current, { opacity: 0, y: 100 });
+    if (footerRef.current) {
+      timeline.from(footerRef.current, { opacity: 0, y: 100 });
+    }
 
     return () => {
       timeline.kill();
@@ -101,18 +90,35 @@ function App() {
         <Header headerRef={headerRef} />
         <div className="container max-w-[1024px] w-full min-w-[320px] h-auto">
           <Routes>
-            <Route path="/" element={<Hero heroRef={heroRef} />} />
+            <Route
+              path="/"
+              element={
+                <>
+                  <Hero heroRef={heroRef} />
+                  <Features />
+                  <HowItWorks />
+                </>
+              }
+            />
             <Route
               path="/plan-a-trip"
               element={<CreateTrip createTripPageRef={createTripPageRef} />}
             />
             <Route
               path="/my-trips/:tripId"
-              element={isAuthenticated ? <Mytrips /> : <Hero />}
+              element={
+                <ProtectedRoute>
+                  <Mytrips />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/all-trips"
-              element={isAuthenticated ? <Alltrips /> : <Hero />}
+              element={
+                <ProtectedRoute>
+                  <Alltrips />
+                </ProtectedRoute>
+              }
             />
           </Routes>
         </div>

@@ -1,16 +1,21 @@
-import React from "react";
+import React, { useContext } from "react";
+import { LogInContext } from "@/Context/LogInContext/Login";
 import Hotelcard from "./Hotelcard";
 
 function Hotels() {
+  const { trip } = useContext(LogInContext);
+  const count = trip?.tripData?.hotels?.length || 0;
+
   return (
-    <div className=" my-[15vh]">
-      <h2 className="opacity-90 mx-auto text-center text-3xl font-black text-primary/80 md:text-5xl">
-        Hotels
+    <section className="my-10 md:my-16">
+      <h2 className="text-2xl md:text-4xl font-black text-center mb-2 bg-gradient-to-b from-primary/90 to-primary/60 bg-clip-text text-transparent">
+        Where to Stay
       </h2>
-      <div className="main-info mt-2 md:mt-4">
-        <Hotelcard  />
-      </div>
-    </div>
+      <p className="text-center opacity-80 mb-8 text-sm md:text-base">
+        {count} handpicked hotels matching your {trip?.tripData?.budget || ""} budget
+      </p>
+      <Hotelcard />
+    </section>
   );
 }
 
