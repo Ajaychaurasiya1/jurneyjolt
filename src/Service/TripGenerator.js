@@ -93,7 +93,8 @@ function getCityName(location) {
 }
 
 function imageUrl(seed) {
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/600`;
+  const label = String(seed).replace(/-/g, " ").slice(0, 24);
+  return `https://placehold.co/800x600/1e40af/ffffff/png?text=${encodeURIComponent(label)}`;
 }
 
 function mapUrl(query) {

@@ -1,5 +1,6 @@
 import { LogInContext } from "@/Context/LogInContext/Login";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { handleImageError, PLACEHOLDER_IMAGE } from "@/lib/images";
 import React, { useContext } from "react";
 
 function FoodGuide() {
@@ -21,9 +22,10 @@ function FoodGuide() {
           <Card key={i} className="border-foreground/20 overflow-hidden hover:scale-[1.02] transition-transform">
             <div className="h-40 overflow-hidden">
               <img
-                src={food.image_url || "/logo.png"}
+                src={food.image_url || PLACEHOLDER_IMAGE}
                 alt={food.name}
                 className="w-full h-full object-cover"
+                onError={handleImageError}
               />
             </div>
             <CardHeader>

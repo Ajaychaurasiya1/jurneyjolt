@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { LogInContext } from "@/Context/LogInContext/Login";
 import { fetchPlaceDetails, getOsmSearchUrl } from "@/Service/GlobalApi";
+import { handleImageError, PLACEHOLDER_IMAGE } from "@/lib/images";
 
 function HotelCards({ hotel }) {
   const [url, setUrl] = useState(hotel.image_url || "");
@@ -51,9 +52,10 @@ function HotelCards({ hotel }) {
       <Card className="border-foreground/20 p-1 h-full flex flex-col gap-3 hover:scale-[1.02] duration-300">
         <div className="img rounded-lg overflow-hidden">
           <img
-            src={url || "/logo.png"}
+            src={url || PLACEHOLDER_IMAGE}
             className="h-56 w-full object-cover"
             alt={hotel.name}
+            onError={handleImageError}
           />
         </div>
         <CardHeader className="w-full pb-2">

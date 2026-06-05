@@ -9,6 +9,7 @@ import {
 import { Link } from "react-router-dom";
 import { LogInContext } from "@/Context/LogInContext/Login";
 import { fetchPlaceDetails, getOsmSearchUrl } from "@/Service/GlobalApi";
+import { handleImageError, PLACEHOLDER_IMAGE } from "@/lib/images";
 
 function PlaceCards({ place }) {
   const { trip } = useContext(LogInContext);
@@ -51,9 +52,10 @@ function PlaceCards({ place }) {
       <Card className="border-foreground/20 p-1 h-full flex flex-col gap-3 hover:scale-[1.02] duration-300">
         <div className="img rounded-lg overflow-hidden relative">
           <img
-            src={url || "/logo.png"}
+            src={url || PLACEHOLDER_IMAGE}
             className="h-48 w-full object-cover"
             alt={place.name}
+            onError={handleImageError}
           />
           {place.category && (
             <span className="absolute top-2 left-2 text-xs bg-background/80 backdrop-blur px-2 py-1 rounded-full">

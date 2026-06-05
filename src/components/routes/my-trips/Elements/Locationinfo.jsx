@@ -1,5 +1,6 @@
 import { LogInContext } from "@/Context/LogInContext/Login";
 import { fetchCityDetails, getPhotoUrl } from "@/Service/GlobalApi";
+import { handleImageError, PLACEHOLDER_IMAGE } from "@/lib/images";
 import React, { useContext, useEffect, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,6 +57,15 @@ function Locationinfo() {
     if (!trip || !city) return;
 
     const getCityInfo = async () => {
+      const fallbackUrl =
+        trip?.tripData?.coverImage ||
+        trip?.tripData?.hotels?.[0]?.image_url ||
+        "";
+
+      if (fallbackUrl) {
+        setAllImages([{ name: city, url: fallbackUrl }]);
+      }
+
       try {
         const details = await fetchCityDetails(city);
         if (details?.photos?.length) {
@@ -94,12 +104,10 @@ function Locationinfo() {
                     <Card>
                       <CardContent className="flex max-h-[50vh] rounded-lg overflow-hidden h-full w-full items-center justify-center p-1">
                         <img
-                          src={
-                            getPhotoUrl(imgs) ||
-                            "/images/main_img_placeholder.jpg"
-                          }
+                          src={getPhotoUrl(imgs) || PLACEHOLDER_IMAGE}
                           className="rounded-lg cursor-pointer"
                           alt={city}
+                          onError={handleImageError}
                         />
                       </CardContent>
                     </Card>

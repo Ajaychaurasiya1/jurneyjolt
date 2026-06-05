@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Link } from "react-router-dom";
 import { LogInContext } from "@/Context/LogInContext/Login";
 import Marquee from "../ui/marquee";
+import { handleImageError, PLACEHOLDER_IMAGE } from "@/lib/images";
 
 function Hero({ heroRef }) {
   const { isAuthenticated } = useContext(LogInContext);
@@ -136,6 +137,7 @@ function Hero({ heroRef }) {
                     loading="lazy"
                     role="presentation"
                     fetchPriority="high"
+                    onError={handleImageError}
                   />
                 </Link>
               );
@@ -158,6 +160,7 @@ function Hero({ heroRef }) {
                     loading="lazy"
                     role="presentation"
                     fetchPriority="high"
+                    onError={handleImageError}
                   />
                 </Link>
               );

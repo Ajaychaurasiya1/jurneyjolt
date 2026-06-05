@@ -1,4 +1,5 @@
 import { fetchCityDetails } from "@/Service/GlobalApi";
+import { handleImageError, PLACEHOLDER_IMAGE } from "@/lib/images";
 import React, { useEffect, useState } from "react";
 
 const AlltripsCard = ({ trip }) => {
@@ -25,9 +26,10 @@ const AlltripsCard = ({ trip }) => {
     <div className="card-card border-foreground/20 rounded-xl overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow">
       <div className="img relative h-48 overflow-hidden group">
         <img
-          src={url || "/logo.png"}
+          src={url || PLACEHOLDER_IMAGE}
           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
           alt={city || "Trip"}
+          onError={handleImageError}
         />
         <div className="absolute top-2 right-2 bg-background/80 backdrop-blur text-xs font-semibold px-2 py-1 rounded-full">
           {days} {days > 1 ? "Days" : "Day"}
